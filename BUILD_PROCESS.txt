@@ -1,0 +1,191 @@
+BEAUTY STORE - BUILD PROCESS GUIDE
+====================================
+
+This guide provides step-by-step instructions to build and deploy the Beauty Store web application.
+
+PREREQUISITES
+=============
+1. Java JDK 11 or higher
+2. Apache Maven 3.6 or higher
+3. Apache Tomcat 9 or 10
+4. MySQL 8.0 or higher
+5. Git (optional, for version control)
+
+STEP 1: CLONE/SETUP PROJECT
+============================
+1. Extract the project files to your workspace
+2. Open terminal/command prompt
+3. Navigate to the project directory:
+   cd jenkins-cicd-project
+
+STEP 2: DATABASE SETUP
+=======================
+1. Start MySQL server
+2. Open MySQL command line or MySQL Workbench
+3. Run the database script:
+   mysql -u root -p < db_backup.sql
+   
+   OR manually:
+   - Create database: CREATE DATABASE beauty_store;
+   - Use database: USE beauty_store;
+   - Copy and paste contents of db_backup.sql
+
+4. Verify database setup:
+   - Check tables: SHOW TABLES;
+   - Check users: SELECT * FROM users;
+   - Check products: SELECT * FROM products;
+
+STEP 3: CONFIGURE DATABASE CONNECTION
+=====================================
+1. Open src/main/resources/application.properties
+2. Update database connection settings if needed:
+   - db.url: jdbc:mysql://localhost:3306/beauty_store
+   - db.username: beauty_user
+   - db.password: beauty_pass123
+
+3. If using different MySQL credentials, update accordingly
+
+STEP 4: BUILD THE PROJECT
+=========================
+1. Open terminal in project root directory
+2. Run Maven clean and compile:
+   mvn clean compile
+
+3. Run Maven package to create WAR file:
+   mvn package
+
+4. Verify build success:
+   - Check target/ directory for beauty-store.war
+   - File size should be approximately 5-10 MB
+
+STEP 5: DEPLOY TO TOMCAT
+========================
+1. Stop Tomcat server if running
+2. Copy WAR file to Tomcat webapps directory:
+   - Windows: copy target\beauty-store.war %TOMCAT_HOME%\webapps\
+   - Linux/Mac: cp target/beauty-store.war $TOMCAT_HOME/webapps/
+
+3. Start Tomcat server:
+   - Windows: %TOMCAT_HOME%\bin\startup.bat
+   - Linux/Mac: $TOMCAT_HOME/bin/startup.sh
+
+4. Wait for deployment (check Tomcat logs)
+5. Access application: http://localhost:8080/beauty-store
+
+STEP 6: VERIFY DEPLOYMENT
+==========================
+1. Open web browser
+2. Navigate to: http://localhost:8080/beauty-store
+3. Verify homepage loads correctly
+4. Test user registration: http://localhost:8080/beauty-store/register
+5. Test login with demo credentials:
+   - Username: admin, Password: password123
+   - Username: john_doe, Password: password123
+
+STEP 7: TROUBLESHOOTING
+========================
+Common Issues and Solutions:
+
+1. Database Connection Error:
+   - Verify MySQL is running
+   - Check database credentials in application.properties
+   - Ensure beauty_store database exists
+
+2. Build Errors:
+   - Verify Java 11+ is installed: java -version
+   - Verify Maven is installed: mvn -version
+   - Clean and rebuild: mvn clean package
+
+3. Deployment Errors:
+   - Check Tomcat logs: $TOMCAT_HOME/logs/catalina.out
+   - Verify WAR file is in webapps directory
+   - Check Tomcat version compatibility
+
+4. Application Errors:
+   - Check application logs
+   - Verify database tables exist
+   - Test database connection manually
+
+STEP 8: PRODUCTION DEPLOYMENT
+=============================
+For production deployment:
+
+1. Update application.properties:
+   - Use production database credentials
+   - Set appropriate connection pool settings
+   - Configure logging levels
+
+2. Security considerations:
+   - Change default passwords
+   - Use HTTPS
+   - Configure firewall rules
+   - Set up proper database permissions
+
+3. Performance optimization:
+   - Configure JVM settings
+   - Set up database indexes
+   - Configure connection pooling
+   - Enable compression
+
+STEP 9: MAINTENANCE
+===================
+1. Regular backups:
+   - Database: mysqldump beauty_store > backup.sql
+   - Application files: backup WAR file
+
+2. Updates:
+   - Stop Tomcat
+   - Replace WAR file
+   - Start Tomcat
+   - Verify deployment
+
+3. Monitoring:
+   - Check Tomcat logs regularly
+   - Monitor database performance
+   - Set up application monitoring
+
+DEMO CREDENTIALS
+================
+Admin User:
+- Username: admin
+- Password: password123
+- Role: admin
+
+Regular Users:
+- Username: john_doe
+- Password: password123
+- Username: jane_smith
+- Password: password123
+- Username: mike_wilson
+- Password: password123
+- Username: sarah_jones
+- Password: password123
+
+FEATURES TO TEST
+================
+1. User Registration: /register
+2. User Login: /login
+3. Product Browsing: /products
+4. Category Browsing: /categories
+5. Homepage: /
+6. Error Pages: Test invalid URLs
+
+TECHNICAL SPECIFICATIONS
+========================
+- Java Version: 11+
+- Servlet API: 4.0.1
+- JSP API: 2.3.3
+- JSTL: 1.2
+- MySQL Connector: 8.0.33
+- Jackson: 2.15.2
+- Logback: 1.2.12
+
+SUPPORT
+========
+For issues or questions:
+1. Check Tomcat logs
+2. Verify database connectivity
+3. Test with demo credentials
+4. Review error pages for specific issues
+
+The application is now ready for use! 
