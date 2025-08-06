@@ -1,0 +1,350 @@
+BEAUTY STORE - HOSTING GUIDE
+=============================
+
+This guide provides comprehensive instructions for hosting the Beauty Store web application on a production server with Apache and MySQL.
+
+PREREQUISITES
+=============
+1. Linux/Unix server (Ubuntu 20.04+ recommended)
+2. Apache HTTP Server 2.4+
+3. MySQL 8.0+
+4. Java JDK 11+
+5. Apache Tomcat 9+
+6. Domain name (optional but recommended)
+7. SSL certificate (recommended for production)
+
+STEP 1: SERVER SETUP
+====================
+1. Update system packages:
+   sudo apt update && sudo apt upgrade -y
+
+2. Install required packages:
+   sudo apt install -y openjdk-11-jdk
+   sudo apt install -y apache2
+   sudo apt install -y mysql-server
+   sudo apt install -y unzip wget curl
+
+3. Install Tomcat:
+   wget https://downloads.apache.org/tomcat/tomcat-9/v9.0.85/bin/apache-tomcat-9.0.85.tar.gz
+   sudo tar -xzf apache-tomcat-9.0.85.tar.gz -C /opt/
+   sudo ln -s /opt/apache-tomcat-9.0.85 /opt/tomcat
+   sudo chown -R tomcat:tomcat /opt/tomcat
+
+STEP 2: MYSQL CONFIGURATION
+============================
+1. Secure MySQL installation:
+   sudo mysql_secure_installation
+
+2. Create database and user:
+   sudo mysql -u root -p
+   
+   CREATE DATABASE beauty_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'beauty_user'@'localhost' IDENTIFIED BY 'beauty_pass123';
+   GRANT ALL PRIVILEGES ON beauty_store.* TO 'beauty_user'@'localhost';
+   FLUSH PRIVILEGES;
+   EXIT;
+
+3. Import database schema:
+   mysql -u beauty_user -p beauty_store < db_backup.sql
+
+STEP 3: TOMCAT CONFIGURATION
+=============================
+1. Create Tomcat service:
+   sudo nano /etc/systemd/system/tomcat.service
+
+   [Unit]
+   Description=Apache Tomcat Web Application Container
+   After=network.target
+
+   [Service]
+   Type=forking
+   Environment=JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+   Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid
+   Environment=CATALINA_HOME=/opt/tomcat
+   Environment=CATALINA_BASE=/opt/tomcat
+   ExecStart=/opt/tomcat/bin/startup.sh
+   ExecStop=/opt/tomcat/bin/shutdown.sh
+   User=tomcat
+   Group=tomcat
+   UMask=0007
+   RestartSec=10
+   Restart=always
+
+   [Install]
+   WantedBy=multi-user.target
+
+2. Enable and start Tomcat:
+   sudo systemctl daemon-reload
+   sudo systemctl enable tomcat
+   sudo systemctl start tomcat
+
+3. Configure Tomcat memory settings:
+   sudo nano /opt/tomcat/bin/setenv.sh
+   
+   export CATALINA_OPTS="-Xms512m -Xmx1024m -XX:MaxPermSize=256m"
+
+4. Make executable:
+   sudo chmod +x /opt/tomcat/bin/setenv.sh
+
+STEP 4: APPLICATION DEPLOYMENT
+==============================
+1. Build the application locally:
+   mvn clean package
+
+2. Upload WAR file to server:
+   scp target/beauty-store.war user@your-server:/tmp/
+
+3. Deploy to Tomcat:
+   sudo cp /tmp/beauty-store.war /opt/tomcat/webapps/
+   sudo chown tomcat:tomcat /opt/tomcat/webapps/beauty-store.war
+
+4. Restart Tomcat:
+   sudo systemctl restart tomcat
+
+5. Verify deployment:
+   curl http://localhost:8080/beauty-store/
+
+STEP 5: APACHE CONFIGURATION
+=============================
+1. Enable required Apache modules:
+   sudo a2enmod proxy
+   sudo a2enmod proxy_http
+   sudo a2enmod proxy_ajp
+   sudo a2enmod rewrite
+   sudo a2enmod ssl
+
+2. Create virtual host configuration:
+   sudo nano /etc/apache2/sites-available/beauty-store.conf
+
+   <VirtualHost *:80>
+       ServerName your-domain.com
+       ServerAlias www.your-domain.com
+       
+       ProxyPreserveHost On
+       ProxyPass / http://localhost:8080/beauty-store/
+       ProxyPassReverse / http://localhost:8080/beauty-store/
+       
+       ErrorLog ${APACHE_LOG_DIR}/beauty-store_error.log
+       CustomLog ${APACHE_LOG_DIR}/beauty-store_access.log combined
+   </VirtualHost>
+
+3. Enable the site:
+   sudo a2ensite beauty-store.conf
+   sudo systemctl reload apache2
+
+STEP 6: SSL CONFIGURATION (RECOMMENDED)
+========================================
+1. Install Certbot:
+   sudo apt install -y certbot python3-certbot-apache
+
+2. Obtain SSL certificate:
+   sudo certbot --apache -d your-domain.com -d www.your-domain.com
+
+3. Verify SSL configuration:
+   sudo certbot renew --dry-run
+
+STEP 7: FIREWALL CONFIGURATION
+===============================
+1. Configure UFW firewall:
+   sudo ufw allow 22/tcp
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   sudo ufw enable
+
+2. Verify firewall status:
+   sudo ufw status
+
+STEP 8: APPLICATION CONFIGURATION
+=================================
+1. Update application.properties for production:
+   sudo nano /opt/tomcat/webapps/beauty-store/WEB-INF/classes/application.properties
+
+   # Production Database Configuration
+   db.url=jdbc:mysql://localhost:3306/beauty_store?useSSL=true&serverTimezone=UTC
+   db.username=beauty_user
+   db.password=beauty_pass123
+   db.driver=com.mysql.cj.jdbc.Driver
+
+   # Connection Pool Settings
+   db.initialSize=10
+   db.maxActive=50
+   db.maxIdle=20
+   db.minIdle=10
+
+   # Application Settings
+   app.name=Beauty Store
+   app.version=1.0.0
+   server.port=8080
+
+   # Session Configuration
+   session.timeout=60
+
+STEP 9: MONITORING AND LOGGING
+===============================
+1. Set up log rotation:
+   sudo nano /etc/logrotate.d/tomcat
+
+   /opt/tomcat/logs/*.log {
+       daily
+       rotate 30
+       compress
+       delaycompress
+       missingok
+       notifempty
+       create 644 tomcat tomcat
+   }
+
+2. Monitor application logs:
+   tail -f /opt/tomcat/logs/catalina.out
+   tail -f /var/log/apache2/beauty-store_access.log
+
+3. Set up monitoring:
+   sudo apt install -y htop iotop
+   sudo apt install -y mysql-client
+
+STEP 10: BACKUP STRATEGY
+=========================
+1. Database backup script:
+   sudo nano /opt/backup-db.sh
+
+   #!/bin/bash
+   DATE=$(date +%Y%m%d_%H%M%S)
+   mysqldump -u beauty_user -p beauty_store > /opt/backups/beauty_store_$DATE.sql
+   gzip /opt/backups/beauty_store_$DATE.sql
+
+2. Application backup script:
+   sudo nano /opt/backup-app.sh
+
+   #!/bin/bash
+   DATE=$(date +%Y%m%d_%H%M%S)
+   cp /opt/tomcat/webapps/beauty-store.war /opt/backups/beauty-store_$DATE.war
+
+3. Set up automated backups:
+   sudo crontab -e
+
+   # Daily database backup at 2 AM
+   0 2 * * * /opt/backup-db.sh
+   
+   # Weekly application backup on Sunday at 3 AM
+   0 3 * * 0 /opt/backup-app.sh
+
+STEP 11: PERFORMANCE OPTIMIZATION
+=================================
+1. MySQL optimization:
+   sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+
+   [mysqld]
+   innodb_buffer_pool_size = 256M
+   innodb_log_file_size = 64M
+   max_connections = 200
+   query_cache_size = 32M
+   query_cache_type = 1
+
+2. Tomcat optimization:
+   sudo nano /opt/tomcat/conf/server.xml
+
+   <Connector port="8080" protocol="HTTP/1.1"
+              connectionTimeout="20000"
+              redirectPort="8443"
+              maxThreads="200"
+              minSpareThreads="10"
+              maxSpareThreads="50"
+              acceptCount="100"
+              enableLookups="false"
+              compression="on"
+              compressionMinSize="2048"
+              compressableMimeType="text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/xml+rss,application/json"/>
+
+3. Apache optimization:
+   sudo nano /etc/apache2/mods-available/mpm_prefork.conf
+
+   <IfModule mpm_prefork_module>
+       StartServers          5
+       MinSpareServers       5
+       MaxSpareServers      10
+       MaxRequestWorkers    150
+       MaxConnectionsPerChild   0
+   </IfModule>
+
+STEP 12: SECURITY HARDENING
+============================
+1. Secure MySQL:
+   - Remove anonymous users
+   - Remove test database
+   - Set strong passwords
+   - Limit user privileges
+
+2. Secure Tomcat:
+   - Remove default applications
+   - Configure security manager
+   - Set up proper file permissions
+   - Use HTTPS only
+
+3. Secure Apache:
+   - Hide server information
+   - Disable directory browsing
+   - Set up proper file permissions
+   - Configure security headers
+
+STEP 13: MAINTENANCE PROCEDURES
+===============================
+1. Regular updates:
+   - System packages: sudo apt update && sudo apt upgrade
+   - Java updates
+   - Tomcat updates
+   - Security patches
+
+2. Application updates:
+   - Stop Tomcat: sudo systemctl stop tomcat
+   - Backup current version
+   - Deploy new WAR file
+   - Start Tomcat: sudo systemctl start tomcat
+   - Verify deployment
+
+3. Database maintenance:
+   - Regular backups
+   - Optimize tables: OPTIMIZE TABLE table_name;
+   - Monitor slow queries
+   - Update statistics
+
+TROUBLESHOOTING
+===============
+1. Application not accessible:
+   - Check Tomcat status: sudo systemctl status tomcat
+   - Check Apache status: sudo systemctl status apache2
+   - Verify firewall settings
+   - Check logs for errors
+
+2. Database connection issues:
+   - Verify MySQL is running: sudo systemctl status mysql
+   - Check database credentials
+   - Test connection manually
+   - Check MySQL logs
+
+3. Performance issues:
+   - Monitor server resources: htop
+   - Check database performance
+   - Review application logs
+   - Optimize queries
+
+SUPPORT AND MONITORING
+======================
+1. Set up monitoring tools:
+   - Server monitoring: htop, iotop
+   - Database monitoring: MySQL Workbench
+   - Application monitoring: Custom scripts
+   - Log monitoring: logwatch
+
+2. Regular health checks:
+   - Application availability
+   - Database connectivity
+   - SSL certificate validity
+   - Backup success
+
+3. Documentation:
+   - Keep deployment notes
+   - Document configuration changes
+   - Maintain troubleshooting guide
+   - Update procedures as needed
+
+The Beauty Store application is now successfully hosted and ready for production use! 
